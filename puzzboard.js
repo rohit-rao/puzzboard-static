@@ -81,8 +81,11 @@ class App extends React.Component {
 // ========================================
 
 const CLIENT_ID = '653241734859-iir95q9aq9sj228hmpnq2tm3jg6obt9p.apps.googleusercontent.com';
-const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
-const SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+const DISCOVERY_DOCS = [
+    'https://sheets.googleapis.com/$discovery/rest?version=v4',
+    'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest',
+];
+const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets';
 
 gapi.load('client', initializeGapiClient);
 tokenClient = google.accounts.oauth2.initTokenClient({
@@ -93,7 +96,7 @@ tokenClient = google.accounts.oauth2.initTokenClient({
 
 async function initializeGapiClient() {
     await gapi.client.init({
-        discoveryDocs: [DISCOVERY_DOC],
+        discoveryDocs: DISCOVERY_DOCS,
     });
 }
 
@@ -114,7 +117,6 @@ function handleAuthClick() {
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
-
 async function fetchPuzzles() {
     let response;
     try {
@@ -131,6 +133,40 @@ async function fetchPuzzles() {
         return;
     }
     root.render(React.createElement(App, { puzzleData: range.values }));
+}
+
+async function createSheet() {
+    let response;
+    try {
+        const file = await gapi.client.drive.files.create({
+            name: 'Your name is a song',
+            parents: ['1Kk4S947bTwFQ5TxG2JDFBGIGgkhgIHo3'],
+            mimeType: 'application/vnd.google-apps.spreadsheet',
+            fields: 'id,webViewLink',
+        });
+        console.log('File:', file);
+        console.log('File Id:', file.result.id);
+        console.log('File Link:', file.result.webViewLink);
+        if (file.status != 200) {
+            console.log('Status was ', file.status);
+            return;
+        }
+        const newId = file.result.id;
+        console.log('Updating D16 with', file.result.webViewLink);
+        const updateResponse = await gapi.client.sheets.spreadsheets.values.update({
+            spreadsheetId: '1ipNMRxCcW9SZDlruF6hF05zRhiKKg9SzVUAYBohXvGE',
+            range: 'D16',
+            majorDimension: 'ROWS',
+            values: [[file.result.webViewLink]],
+            valueInputOption: 'RAW',
+        });
+
+        console.log('fetching puzzles');
+        fetchPuzzles();
+    } catch (err) {
+        // TODO(developer) - Handle error
+        throw err;
+    }
 }
 
 root.render(React.createElement(App, null));
